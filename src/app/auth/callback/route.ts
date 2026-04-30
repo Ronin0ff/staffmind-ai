@@ -11,5 +11,12 @@ export async function GET(request: NextRequest) {
     await supabase.auth.exchangeCodeForSession(code);
   }
 
-  return NextResponse.redirect(`${origin}${next}`);
+  // Only allow same-origin relative paths to avoid open-redirect attacks
+  // (e.g. ?next=//evil.com or ?next=@evil.com).
+  const safePath =
+    next.startsWith("/") && !next.startsWith("//") && !next.startsWith("/\\")
+      ? next
+      : "/dashboard";
+
+  return NextResponse.redirect(`${origin}${safePath}`);
 }

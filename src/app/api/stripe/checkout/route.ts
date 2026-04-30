@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getStripe, PLANS, type PlanId } from "@/lib/stripe";
+import { requireUser } from "@/lib/auth-guard";
 
 const schema = z.object({
   plan: z.enum(["start", "scale"]),
@@ -8,6 +9,9 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  const guard = await requireUser();
+  if (guard instanceof NextResponse) return guard;
+
   const json = await req.json().catch(() => null);
   const parsed = schema.safeParse(json);
   if (!parsed.success) {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getOpenAI, AI_MODEL } from "@/lib/openai";
+import { requireUser } from "@/lib/auth-guard";
 
 const schema = z.object({
   organization: z.string(),
@@ -15,6 +16,9 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  const guard = await requireUser();
+  if (guard instanceof NextResponse) return guard;
+
   const json = await req.json().catch(() => null);
   const parsed = schema.safeParse(json);
   if (!parsed.success) {

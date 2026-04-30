@@ -30,7 +30,16 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const protectedPaths = ["/dashboard", "/pulse", "/analytics", "/settings", "/billing", "/onboarding"];
+  const protectedPaths = [
+    "/dashboard",
+    "/pulse",
+    "/analytics",
+    "/settings",
+    "/billing",
+    "/onboarding",
+    "/goals",
+    "/hire",
+  ];
   const needsAuth = protectedPaths.some((p) => request.nextUrl.pathname.startsWith(p));
 
   if (needsAuth && !user && process.env.NEXT_PUBLIC_REQUIRE_AUTH !== "false") {
