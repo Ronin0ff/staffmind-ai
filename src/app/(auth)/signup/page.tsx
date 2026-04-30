@@ -15,13 +15,14 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -30,8 +31,17 @@ export default function SignupPage() {
         },
       });
       if (error) throw error;
-      toast.success("Аккаунт создан. Проверьте почту для подтверждения.");
-      router.push("/onboarding");
+      // When Supabase has "Confirm email" enabled (default), signUp returns
+      // error: null but session: null until the user clicks the email link.
+      // We must NOT navigate to /onboarding in that case — /api/onboarding
+      // would 401 because there is no authenticated user yet.
+      if (data.session) {
+        toast.success("Аккаунт создан.");
+        router.push("/onboarding");
+      } else {
+        setPendingConfirmation(true);
+        toast.success("Письмо для подтверждения отправлено на " + email);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Ошибка регистрации";
       toast.error(msg);
@@ -39,6 +49,40 @@ export default function SignupPage() {
       setLoading(false);
     }
   };
+
+  if (pendingConfirmation) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Проверьте почту</CardTitle>
+          <CardDescription>
+            Мы отправили письмо со ссылкой для подтверждения на{" "}
+            <span className="text-foreground">{email}</span>. Перейдите по ссылке —
+            и продолжим онбординг.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Не пришло за 5 минут? Проверьте спам или{" "}
+            <button
+              type="button"
+              className="text-brand-300 hover:text-brand-200 underline"
+              onClick={() => setPendingConfirmation(false)}
+            >
+              отправить ещё раз
+            </button>
+            .
+          </p>
+          <p className="mt-6 text-sm text-muted-foreground text-center">
+            Уже подтвердили?{" "}
+            <Link href="/login" className="text-brand-300 hover:text-brand-200">
+              Войти
+            </Link>
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
