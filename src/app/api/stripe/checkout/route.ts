@@ -40,14 +40,24 @@ export async function POST(req: Request) {
     userEmail = data.user?.email ?? undefined;
   }
 
-  // Prefer the trusted, server-side configured site URL to prevent attackers
-  // from setting Origin: https://evil.com on the request and turning a Stripe
-  // success_url into a phishing redirect.
+  // Build success_url / cancel_url from a trusted, server-configured origin.
+  // The Origin request header is spoofable and MUST NOT be used in production
+  // (an attacker with valid auth could craft a Checkout session whose redirect
+  // points at evil.com). In dev we allow it as a convenience.
+  const trustedOrigin =
+    process.env.NEXT_PUBLIC_SITE_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (!trustedOrigin && process.env.NODE_ENV === "production") {
+    return NextResponse.json(
+      {
+        error: "site_url_not_configured",
+        message:
+          "Установите NEXT_PUBLIC_SITE_URL в production окружении (требуется для безопасных Stripe redirect URLs).",
+      },
+      { status: 500 }
+    );
+  }
   const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
-    req.headers.get("origin") ??
-    "http://localhost:3000";
+    trustedOrigin ?? req.headers.get("origin") ?? "http://localhost:3000";
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",

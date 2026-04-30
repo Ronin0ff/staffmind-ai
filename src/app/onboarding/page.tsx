@@ -26,13 +26,19 @@ export default function OnboardingPage() {
       return;
     }
     try {
-      await fetch("/api/onboarding", {
+      const res = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ orgName, orgSize, seedEmails, template }),
       });
-    } catch {
-      // ignore — мок
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error ?? "Не удалось создать организацию");
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Не удалось создать организацию";
+      toast.error(msg);
+      return;
     }
     toast.success("Готово! Добро пожаловать в StaffMind AI.");
     router.push("/dashboard");
