@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function updateSession(request: NextRequest) {
@@ -10,18 +10,20 @@ export async function updateSession(request: NextRequest) {
 
   const supabase = createServerClient(url, key, {
     cookies: {
-      get(name: string) {
-        return request.cookies.get(name)?.value;
+      getAll() {
+        return request.cookies.getAll();
       },
-      set(name: string, value: string, options: CookieOptions) {
-        request.cookies.set({ name, value, ...options });
+      setAll(cookiesToSet) {
+        // Apply all incoming cookie writes to the request first so subsequent
+        // reads inside this middleware see the new values …
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        // … then mint a fresh response and write each cookie onto it. Critically
+        // we do this once per setAll call, not once per cookie, so chunked
+        // auth tokens (sb-…-auth-token.0/.1/.2) all survive.
         supabaseResponse = NextResponse.next({ request });
-        supabaseResponse.cookies.set({ name, value, ...options });
-      },
-      remove(name: string, options: CookieOptions) {
-        request.cookies.set({ name, value: "", ...options });
-        supabaseResponse = NextResponse.next({ request });
-        supabaseResponse.cookies.set({ name, value: "", ...options });
+        cookiesToSet.forEach(({ name, value, options }) =>
+          supabaseResponse.cookies.set(name, value, options)
+        );
       },
     },
   });

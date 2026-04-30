@@ -40,7 +40,14 @@ export async function POST(req: Request) {
     userEmail = data.user?.email ?? undefined;
   }
 
-  const origin = req.headers.get("origin") ?? "http://localhost:3000";
+  // Prefer the trusted, server-side configured site URL to prevent attackers
+  // from setting Origin: https://evil.com on the request and turning a Stripe
+  // success_url into a phishing redirect.
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    process.env.NEXT_PUBLIC_APP_URL ??
+    req.headers.get("origin") ??
+    "http://localhost:3000";
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
