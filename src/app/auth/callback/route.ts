@@ -8,7 +8,13 @@ export async function GET(request: NextRequest) {
 
   if (code) {
     const supabase = createClient();
-    await supabase.auth.exchangeCodeForSession(code);
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      // Most often: code already used, expired, or invalid. Send the user
+      // back to /login with an error flag so they can retry instead of
+      // bouncing through middleware to /login with no context.
+      return NextResponse.redirect(`${origin}/login?error=code_exchange_failed`);
+    }
   }
 
   // Only allow same-origin relative paths to avoid open-redirect attacks

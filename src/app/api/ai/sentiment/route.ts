@@ -56,12 +56,17 @@ export async function POST(req: Request) {
     parsedJson = {};
   }
 
-  const items = (parsedJson.items ?? []).map((it, i) => ({
-    text: parsed.data.texts[i] ?? "",
-    sentiment: typeof it.sentiment === "string" ? it.sentiment : "neutral",
-    score: typeof it.score === "number" ? it.score : 0,
-    clusters: Array.isArray(it.clusters) ? it.clusters : [],
-  }));
+  // Always emit one item per input text so callers can rely on a 1:1 mapping
+  // even if GPT returns fewer/more items than requested.
+  const items = parsed.data.texts.map((text, i) => {
+    const it = parsedJson.items?.[i];
+    return {
+      text,
+      sentiment: typeof it?.sentiment === "string" ? it.sentiment : "neutral",
+      score: typeof it?.score === "number" ? it.score : 0,
+      clusters: Array.isArray(it?.clusters) ? it.clusters : [],
+    };
+  });
 
   return NextResponse.json({ items });
 }
