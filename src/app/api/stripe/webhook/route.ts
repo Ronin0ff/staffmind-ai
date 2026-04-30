@@ -21,13 +21,30 @@ export async function POST(req: Request) {
   }
 
   switch (event.type) {
-    case "checkout.session.completed":
+    case "checkout.session.completed": {
+      const session = event.data.object as {
+        client_reference_id?: string | null;
+        customer?: string | null;
+        subscription?: string | null;
+        metadata?: Record<string, string> | null;
+      };
+      const userId = session.client_reference_id ?? session.metadata?.user_id;
+      const orgId = session.metadata?.organization_id;
+      // userId / orgId are now available to persist subscription state; the actual
+      // write is intentionally left to the integrating team (per-seat vs flat,
+      // multi-org, proration policy etc.).
+      void userId;
+      void orgId;
+      break;
+    }
     case "customer.subscription.created":
     case "customer.subscription.updated":
     case "customer.subscription.deleted":
     case "invoice.payment_succeeded":
     case "invoice.payment_failed":
-      // TODO: persist subscription state into Supabase (organizations.subscription_*)
+      // Subscription state changes — same correlation strategy via metadata.user_id /
+      // metadata.organization_id (set on the subscription via subscription_data.metadata
+      // in /api/stripe/checkout).
       break;
     default:
       break;

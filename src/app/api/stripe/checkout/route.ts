@@ -2,10 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getStripe, PLANS, type PlanId } from "@/lib/stripe";
 import { requireUser } from "@/lib/auth-guard";
+import { createClient } from "@/lib/supabase/server";
 
 const schema = z.object({
   plan: z.enum(["start", "scale"]),
   seats: z.number().int().positive().optional(),
+  organizationId: z.string().uuid().optional(),
 });
 
 export async function POST(req: Request) {
@@ -30,6 +32,14 @@ export async function POST(req: Request) {
     });
   }
 
+  // Fetch user email so the webhook can correlate completed sessions back to a user/org.
+  let userEmail: string | undefined;
+  if (!guard.demo) {
+    const supabase = createClient();
+    const { data } = await supabase.auth.getUser();
+    userEmail = data.user?.email ?? undefined;
+  }
+
   const origin = req.headers.get("origin") ?? "http://localhost:3000";
 
   const session = await stripe.checkout.sessions.create({
@@ -43,6 +53,32 @@ export async function POST(req: Request) {
     success_url: `${origin}/billing?status=success`,
     cancel_url: `${origin}/billing?status=cancelled`,
     allow_promotion_codes: true,
+    customer_email: userEmail,
+    client_reference_id: guard.demo ? undefined : guard.userId,
+    metadata: {
+      plan: planKey,
+      ...(guard.demo
+        ? {}
+        : {
+            user_id: guard.userId,
+            ...(parsed.data.organizationId
+              ? { organization_id: parsed.data.organizationId }
+              : {}),
+          }),
+    },
+    subscription_data: {
+      metadata: {
+        plan: planKey,
+        ...(guard.demo
+          ? {}
+          : {
+              user_id: guard.userId,
+              ...(parsed.data.organizationId
+                ? { organization_id: parsed.data.organizationId }
+                : {}),
+            }),
+      },
+    },
   });
 
   return NextResponse.json({ url: session.url });
